@@ -7,9 +7,21 @@ const notifier = require('node-notifier'); // Biblioteca para notificações e s
 // Configura o cliente do WhatsApp com autenticação local
 const client = new Client({
     authStrategy: new LocalAuth({
-        dataPath: './session' // Diretório onde a sessão será salva
-    })
+        dataPath: './session'
+    }),
+    puppeteer: {
+        args: [
+            '--no-sandbox',
+            '--disable-setuid-sandbox',
+            '--disable-dev-shm-usage', // Evita problemas de memória no Docker
+            '--single-process', // Executa o Chromium em um único processo
+            '--disable-software-rasterizer',
+        ]
+    }
 });
+
+
+
 
 // Função para formatar a entrada do usuário
 function formatarEntrada(texto) {
@@ -52,6 +64,7 @@ if (precos.length === 0 || plantao.length === 0) {
 client.on('qr', qr => {
     qrcode.generate(qr, { small: true });
 });
+
 
 client.on('ready', () => {
     console.log('Tudo certo! WhatsApp conectado.');

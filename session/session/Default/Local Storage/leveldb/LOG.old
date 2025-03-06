@@ -1,2 +1,3 @@
-2025/03/06-08:23:12.034 6878 Creating DB /home/joyzinhw/testebotchat/session/session/Default/Local Storage/leveldb since it was missing.
-2025/03/06-08:23:12.041 6878 Reusing MANIFEST /home/joyzinhw/testebotchat/session/session/Default/Local Storage/leveldb/MANIFEST-000001
+2025/03/06-09:14:33.571 8524 Reusing MANIFEST /home/joyzinhw/testebotchat/session/session/Default/Local Storage/leveldb/MANIFEST-000001
+2025/03/06-09:14:33.571 8524 Recovering log #3
+2025/03/06-09:14:33.571 8524 Reusing old log /home/joyzinhw/testebotchat/session/session/Default/Local Storage/leveldb/000003.log 

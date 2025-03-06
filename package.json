@@ -14,7 +14,7 @@
     "fs": "^0.0.1-security",
     "node-notifier": "^10.0.1",
     "papaparse": "^5.5.2",
-    "puppeteer": "^24.3.0",
+    "puppeteer": "^24.4.0",
     "puppeteer-core": "^24.3.0",
     "qrcode": "^1.5.4",
     "qrcode-terminal": "^0.12.0",
