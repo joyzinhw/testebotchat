@@ -20,8 +20,16 @@ const client = new Client({
     }
 });
 
+async function startBot() {
+    const browser = await puppeteer.launch({
+        args: ['--no-sandbox', '--disable-setuid-sandbox'],
+    });
+    // Adicione o restante do seu código aqui, como interação com o navegador
+}
 
-
+startBot().catch(error => {
+    console.error('Erro ao iniciar o bot:', error);
+});
 
 // Função para formatar a entrada do usuário
 function formatarEntrada(texto) {
