@@ -1,3 +1,2 @@
-2025/02/28-09:54:42.090 bb31 Reusing MANIFEST /home/joyzinhw/Música/bot-whatsapp/session/session/Default/Service Worker/Database/MANIFEST-000001
-2025/02/28-09:54:42.090 bb31 Recovering log #3
-2025/02/28-09:54:42.090 bb31 Reusing old log /home/joyzinhw/Música/bot-whatsapp/session/session/Default/Service Worker/Database/000003.log 
+2025/03/06-08:23:13.625 6886 Creating DB /home/joyzinhw/testebotchat/session/session/Default/Service Worker/Database since it was missing.
+2025/03/06-08:23:13.634 6886 Reusing MANIFEST /home/joyzinhw/testebotchat/session/session/Default/Service Worker/Database/MANIFEST-000001

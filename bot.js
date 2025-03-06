@@ -1,21 +1,53 @@
-const { Client, LocalAuth } = require('whatsapp-web.js');
 const qrcode = require('qrcode-terminal');
 const fs = require('fs');
 const Papa = require('papaparse');
-const notifier = require('node-notifier'); // Para notificações
-const puppeteer = require('puppeteer-core');
+const { Client, LocalAuth } = require('whatsapp-web.js');
+const notifier = require('node-notifier'); // Biblioteca para notificações e sons
 
-// Caminho correto para o Chromium ou Google Chrome
-const executablePath = '/usr/bin/google-chrome'; // Ou outro caminho se necessário
-
-// Configura o cliente do WhatsApp
+// Configura o cliente do WhatsApp com autenticação local
 const client = new Client({
     authStrategy: new LocalAuth({
-        dataPath: './session'
-    }),
-    chromiumArgs: ['--no-sandbox', '--disable-setuid-sandbox'], // Flags para o Puppeteer
-    executablePath: executablePath, // Passa o caminho correto como string
+        dataPath: './session' // Diretório onde a sessão será salva
+    })
 });
+
+// Função para formatar a entrada do usuário
+function formatarEntrada(texto) {
+    if (!texto) return texto;
+
+    // Verifica se o texto está todo em maiúsculo ou todo em minúsculo
+    const todoMaiusculo = texto === texto.toUpperCase();
+    const todoMinusculo = texto === texto.toLowerCase();
+
+    if (todoMaiusculo || todoMinusculo) {
+        // Transforma a primeira letra em maiúscula e o restante em minúscula
+        return texto.charAt(0).toUpperCase() + texto.slice(1).toLowerCase();
+    } else {
+        // Apenas transforma a primeira letra em maiúscula
+        return texto.charAt(0).toUpperCase() + texto.slice(1);
+    }
+}
+
+// Função para carregar os dados do CSV
+function carregarCSV(caminho) {
+    try {
+        const csv = fs.readFileSync(caminho, 'utf8');
+        const data = Papa.parse(csv, { header: true, skipEmptyLines: true }).data;
+        console.log(`Dados carregados de ${caminho}:`, data);
+        return data;
+    } catch (error) {
+        console.error(`Erro ao carregar o arquivo CSV: ${caminho}`, error);
+        return [];
+    }
+}
+
+const precos = carregarCSV('precos.csv');
+const plantao = carregarCSV('plantao.csv');
+
+if (precos.length === 0 || plantao.length === 0) {
+    console.error('Erro: Um ou mais arquivos CSV não foram carregados corretamente.');
+    process.exit(1);
+}
 
 client.on('qr', qr => {
     qrcode.generate(qr, { small: true });
@@ -43,82 +75,17 @@ const delay = ms => new Promise(res => setTimeout(res, ms));
 
 const userState = {};
 
-// Função para formatar a entrada do usuário
-function formatarEntrada(texto) {
-    if (!texto) return texto;
-
-    const todoMaiusculo = texto === texto.toUpperCase();
-    const todoMinusculo = texto === texto.toLowerCase();
-
-    if (todoMaiusculo || todoMinusculo) {
-        return texto.charAt(0).toUpperCase() + texto.slice(1).toLowerCase();
-    } else {
-        return texto.charAt(0).toUpperCase() + texto.slice(1);
-    }
-}
-
-// Função para carregar os dados do CSV
-function carregarCSV(caminho) {
-    try {
-        const csv = fs.readFileSync(caminho, 'utf8');
-        const data = Papa.parse(csv, { header: true, skipEmptyLines: true }).data;
-        console.log(`Dados carregados de ${caminho}:`, data);
-        return data;
-    } catch (error) {
-        console.error(`Erro ao carregar o arquivo CSV: ${caminho}`, error);
-        return [];
-    }
-}
-
-const precos = carregarCSV('precos.csv');
-const plantao = carregarCSV('plantao.csv');
-
-if (precos.length === 0 || plantao.length === 0) {
-    console.error('Erro: Um ou mais arquivos CSV não foram carregados corretamente.');
-    process.exit(1);
-}
-
-client.on('message', async msg => {
-    const from = msg.from;
-
-    if (from.endsWith('@c.us')) {
-        console.log('Mensagem recebida de:', from, 'Conteúdo:', msg.body);
-
-        let contato;
-        try {
-            contato = await msg.getContact();
-        } catch (error) {
-            console.error('Erro ao obter contato de:', from, error);
-        }
-
-        // Menu de interação com o cliente
-        if (userState[from]) {
-            const state = userState[from];
-
-            if (state.step === 'nome') {
-                await client.sendMessage(from, `Olá ${formatarEntrada(contato.pushname)}! Vamos continuar com o agendamento. Por favor, informe o tipo de consulta.`);
-                userState[from].step = 'tipoConsulta';
-            } else if (state.step === 'tipoConsulta') {
-                // Continue com o agendamento de consulta
-                await client.sendMessage(from, `A consulta foi agendada com sucesso para ${msg.body}.`);
-                delete userState[from];
-            }
-        } else {
-            await enviarMenu(from, contato.pushname);
-        }
-    }
-});
-
 // Opções do menu
 const menuOptions = {
     '1': agendarConsulta,
     '2': async (from) => {
         await client.sendMessage(from, 'Se precisar de algo mais, estou à disposição.');
+        // Ativa o alarme
         notifier.notify({
             title: 'Alerta',
             message: 'Uma pessoa humana precisa responder!',
-            sound: true,
-            wait: true
+            sound: true, // Reproduz um som de notificação
+            wait: true // Espera até que a notificação seja fechada
         });
     },
     '3': consultarPreco,
@@ -131,7 +98,7 @@ const menuOptions = {
     '7': pegarExame,
     '8': async (from) => {
         await client.sendMessage(from, 'Atendimento encerrado. Para retornar, basta enviar uma mensagem.');
-        delete userState[from];
+        delete userState[from]; // Encerra o estado do usuário
     }
 };
 
@@ -140,6 +107,7 @@ async function consultarPreco(from) {
     console.log('Enviando solicitação de preço para:', from);
     await client.sendMessage(from, 'Digite o nome do procedimento que deseja consultar o preço.');
 
+    // Define o estado do usuário para aguardar o nome do procedimento
     userState[from] = { step: 'consultarPreco' };
 }
 
@@ -169,6 +137,7 @@ async function verProcedimentos(from) {
     console.log('Solicitando nome do procedimento para:', from);
     await client.sendMessage(from, 'Digite o nome do procedimento que deseja verificar se é realizado na clínica.');
 
+    // Define o estado do usuário para aguardar o nome do procedimento
     userState[from] = { step: 'verProcedimento' };
 }
 
@@ -216,21 +185,24 @@ Opções:
 function buscarMedicoPlantao() {
     const agora = new Date();
     const diasSemana = ['domingo', 'segunda', 'terça', 'quarta', 'quinta', 'sexta', 'sábado'];
-    const diaSemana = diasSemana[agora.getDay()];
+    const diaSemana = diasSemana[agora.getDay()]; // Obtém o dia da semana atual
 
     const horaAtual = agora.getHours();
     const minutoAtual = agora.getMinutes();
-    const minutosAtual = horaAtual * 60 + minutoAtual;
+    const minutosAtual = horaAtual * 60 + minutoAtual; // Converte a hora atual para minutos
 
     const medico = plantao.find(p => {
         const [horaInicioStr, horaFimStr] = p.Horário.split('-').map(h => h.trim());
         
+        // Converte o horário de início para minutos
         const horaInicio = parseInt(horaInicioStr.split('H')[0]);
         const minutosInicio = horaInicio * 60;
 
+        // Converte o horário de fim para minutos
         const horaFim = parseInt(horaFimStr.split('H')[0]);
-        const minutosFim = horaFim === 0 ? 24 * 60 : horaFim * 60;
+        const minutosFim = horaFim === 0 ? 24 * 60 : horaFim * 60; // Se for 0H, considera como 24H
 
+        // Verifica se o dia da semana e o horário atual estão dentro do intervalo de plantão
         return p['Dia da Semana'].toLowerCase() === diaSemana &&
                minutosAtual >= minutosInicio && minutosAtual < minutosFim;
     });
@@ -248,7 +220,9 @@ async function agendarConsulta(from) {
 // Função para enviar informações sobre endoscopia
 async function diasEndoscopia(from) {
     console.log('Enviando informações sobre endoscopia para:', from);
-    await client.sendMessage(from, 'Os dias de endoscopia na clínica são agendados diretamente. Os exames começam a partir das 9 horas.');
+    const diasEndoscopia = ['07/03', '08/03', '14/03', '15/03', '28/03', '31/03'];
+    const mensagem = `Aqui estão os dias disponíveis para endoscopia: ${diasEndoscopia.join(', ')}.`;
+    await client.sendMessage(from, mensagem);
 }
 
 // Função para enviar informações sobre retirada de exame
@@ -256,3 +230,91 @@ async function pegarExame(from) {
     console.log('Enviando informações sobre retirada de exame para:', from);
     await client.sendMessage(from, 'Para pegar seu exame, é necessário apresentar o papel entregue após a realização do exame. A retirada pode ser feita a partir das 9 horas do dia indicado no papel.');
 }
+
+// Listener para mensagens recebidas
+client.on('message', async msg => {
+    const from = msg.from;
+
+    // Verifica se a mensagem é de um usuário (não é do bot)
+    if (from.endsWith('@c.us')) {
+        console.log('Mensagem recebida de:', from, 'Conteúdo:', msg.body);
+
+        let contato;
+        try {
+            contato = await msg.getContact();
+        } catch (error) {
+            console.error('Erro ao obter contato para:', from, error);
+            return;
+        }
+        const nome = contato.pushname ? formatarEntrada(contato.pushname.split(" ")[0]) : 'Usuário';
+
+        // Se o usuário já está em um estado de conversa (ex: agendamento), processa a resposta
+        if (userState[from]) {
+            const state = userState[from];
+            try {
+                switch (state.step) {
+                    case 'nome':
+                        state.nomePaciente = formatarEntrada(msg.body);
+                        state.step = 'medico';
+                        await client.sendMessage(from, 'Qual médico deseja consultar?');
+                        break;
+                    case 'medico':
+                        state.medico = formatarEntrada(msg.body);
+                        state.step = 'horario';
+                        await client.sendMessage(from, 'Qual horário deseja marcar?');
+                        break;
+                    case 'horario':
+                        state.horario = msg.body;
+                        state.step = 'dia';
+                        await client.sendMessage(from, 'Qual dia você deseja que a consulta seja realizada?');
+                        break;
+                    case 'dia':
+                        state.dia = msg.body;
+                        const confirmacao = `Consulta agendada:
+Paciente: ${state.nomePaciente}
+Médico: ${state.medico}
+Horário: ${state.horario}
+Dia: ${state.dia}
+Se precisar de algo mais, estou à disposição.`;
+                        await client.sendMessage(from, confirmacao);
+                        delete userState[from];
+                        await delay(2000);
+                        await enviarMenu(from, state.nomePaciente.split(" ")[0]);
+                        break;
+                    case 'consultarPreco':
+                        const procedimentoPreco = formatarEntrada(msg.body);
+                        const respostaPreco = buscarPreco(procedimentoPreco);
+                        await client.sendMessage(from, respostaPreco);
+                        delete userState[from]; // Limpa o estado do usuário
+                        await delay(2000);
+                        await enviarMenu(from, nome);
+                        break;
+                    case 'verProcedimento':
+                        const procedimento = formatarEntrada(msg.body);
+                        const resposta = verificarProcedimento(procedimento);
+                        await client.sendMessage(from, resposta);
+                        delete userState[from]; // Limpa o estado do usuário
+                        await delay(2000);
+                        await enviarMenu(from, nome);
+                        break;
+                }
+            } catch (error) {
+                console.error('Erro ao processar mensagem para o usuário em estado:', from, error);
+                await client.sendMessage(from, 'Desculpe, ocorreu um erro ao processar sua solicitação.');
+            }
+        } else {
+            // Se a mensagem corresponde a uma opção de menu, processa
+            if (menuOptions[msg.body]) {
+                try {
+                    await menuOptions[msg.body](from);
+                } catch (error) {
+                    console.error('Erro ao processar a opção do menu:', error);
+                    await client.sendMessage(from, 'Desculpe, ocorreu um erro ao processar sua solicitação.');
+                }
+            } else {
+                // Caso não corresponda a uma opção específica, envia o menu principal
+                await enviarMenu(from, nome);
+            }
+        }
+    }
+});
