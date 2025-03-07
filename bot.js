@@ -314,7 +314,7 @@ Se precisar de algo mais, estou à disposição.`;
                         await delay(2000);
                         await enviarMenu(from, state.nomePaciente.split(" ")[0]);
                         break;
-                    case 'marcaRetorno':
+                    case 'retornoNome':
                         // Para marcar retorno, repete o fluxo de agendamento de consulta
                         state.nomePaciente = formatarEntrada(msg.body);  // Nome do paciente
                         state.step = 'medicoRetorno';
