@@ -239,11 +239,7 @@ async function agendarConsulta(from) {
     userState[from] = { step: 'nome' };
     await client.sendMessage(from, 'Por favor, informe o nome completo do paciente.');
 }
-async function marcaRetorno(from) {
-    console.log('Iniciando marcação de retorno para:', from);
-    userState[from] = { step: 'nomeRetorno' };
-    await client.sendMessage(from, 'Por favor, informe o nome completo do paciente para o retorno.');
-}
+
 // Função para enviar informações sobre endoscopia
 async function diasEndoscopia(from) {
     console.log('Enviando informações sobre endoscopia para:', from);
@@ -257,6 +253,8 @@ async function pegarExame(from) {
     console.log('Enviando informações sobre retirada de exame para:', from);
     await client.sendMessage(from, 'Para pegar seu exame, é necessário apresentar o papel entregue após a realização do exame. A retirada pode ser feita a partir das 9 horas do dia indicado no papel.');
 }
+
+// Listener para mensagens recebidas
 
 // Listener para mensagens recebidas
 client.on('message', async msg => {
@@ -308,94 +306,34 @@ Se precisar de algo mais, estou à disposição.`;
                         await delay(2000);
                         await enviarMenu(from, state.nomePaciente.split(" ")[0]);
                         break;
-                    case 'consultarPreco':
-                        const procedimentoPreco = formatarEntrada(msg.body);
-                        const respostaPreco = buscarPreco(procedimentoPreco);
-                        await client.sendMessage(from, respostaPreco);
-                        delete userState[from]; // Limpa o estado do usuário
-                        await delay(2000);
-                        await enviarMenu(from, nome);
+                    case 'retorno':
+                        // Para marcar retorno, repete o fluxo de agendamento de consulta
+                        state.nomePaciente = formatarEntrada(msg.body);  // Nome do paciente
+                        state.step = 'medicoRetorno';
+                        await client.sendMessage(from, 'Qual médico deseja consultar para o retorno?');
                         break;
-                    case 'verProcedimento':
-                        const procedimento = formatarEntrada(msg.body);
-                        const resposta = verificarProcedimento(procedimento);
-                        await client.sendMessage(from, resposta);
-                        delete userState[from]; // Limpa o estado do usuário
-                        await delay(2000);
-                        await enviarMenu(from, nome);
+                    case 'medicoRetorno':
+                        state.medico = formatarEntrada(msg.body);  // Médico do retorno
+                        state.step = 'horarioRetorno';
+                        await client.sendMessage(from, 'Qual horário deseja marcar para o retorno?');
                         break;
-                }
-            } catch (error) {
-                console.error('Erro ao processar mensagem para o usuário em estado:', from, error);
-                await client.sendMessage(from, 'Desculpe, ocorreu um erro ao processar sua solicitação.');
-            }
-        } else {
-            // Se a mensagem corresponde a uma opção de menu, processa
-            if (menuOptions[msg.body]) {
-                try {
-                    await menuOptions[msg.body](from);
-                } catch (error) {
-                    console.error('Erro ao processar a opção do menu:', error);
-                    await client.sendMessage(from, 'Desculpe, ocorreu um erro ao processar sua solicitação.');
-                }
-            } else {
-                // Caso não corresponda a uma opção específica, envia o menu principal
-                await enviarMenu(from, nome);
-            }
-        }
-    }
-});
-
-
-// Listener para mensagens recebidas
-client.on('message', async msg => {
-    const from = msg.from;
-
-    // Verifica se a mensagem é de um usuário (não é do bot)
-    if (from.endsWith('@c.us')) {
-        console.log('Mensagem recebida de:', from, 'Conteúdo:', msg.body);
-
-        let contato;
-        try {
-            contato = await msg.getContact();
-        } catch (error) {
-            console.error('Erro ao obter contato para:', from, error);
-            return;
-        }
-        const nome = contato.pushname ? formatarEntrada(contato.pushname.split(" ")[0]) : 'Usuário';
-
-        // Se o usuário já está em um estado de conversa (ex: agendamento), processa a resposta
-        if (userState[from]) {
-            const state = userState[from];
-            try {
-                switch (state.step) {
-                    case 'nome':
-                        state.nomePaciente = formatarEntrada(msg.body);
-                        state.step = 'medico';
-                        await client.sendMessage(from, 'Qual é o médico que você deseja marca o retorno?');
-                        break;
-                    case 'medico':
-                        state.medico = formatarEntrada(msg.body);
-                        state.step = 'horario';
-                        await client.sendMessage(from, 'Qual horário deseja marcar?');
-                        break;
-                    case 'horario':
-                        state.horario = msg.body;
-                        state.step = 'dia';
+                    case 'horarioRetorno':
+                        state.horario = msg.body;  // Horário do retorno
+                        state.step = 'diaRetorno';
                         await client.sendMessage(from, 'Qual dia você deseja que o retorno seja realizado?');
                         break;
-                    case 'dia':
-                        state.dia = msg.body;
-                        const confirmacao = `Retorno agendado:
+                    case 'diaRetorno':
+                        state.dia = msg.body;  // Dia do retorno
+                        const retornoConfirmacao = `Retorno agendado:
 Paciente: ${state.nomePaciente}
 Médico: ${state.medico}
 Horário: ${state.horario}
 Dia: ${state.dia}
 Se precisar de algo mais, estou à disposição.`;
-                        await client.sendMessage(from, confirmacao);
+                        await client.sendMessage(from, retornoConfirmacao);
                         delete userState[from];
                         await delay(2000);
-                        await enviarMenu(from, state.nomePaciente.split(" ")[0]);
+                        await enviarMenu(from, nome);
                         break;
                     case 'consultarPreco':
                         const procedimentoPreco = formatarEntrada(msg.body);
@@ -412,34 +350,6 @@ Se precisar de algo mais, estou à disposição.`;
                         delete userState[from]; // Limpa o estado do usuário
                         await delay(2000);
                         await enviarMenu(from, nome);
-                        break;
-                    case 'nomeRetorno':
-                        state.nomePaciente = formatarEntrada(msg.body);
-                        state.step = 'medicoRetorno';
-                        await client.sendMessage(from, 'Qual médico deseja que o retorno seja realizado?');
-                        break;
-                    case 'medicoRetorno':
-                        state.medicoRetorno = formatarEntrada(msg.body);
-                        state.step = 'horarioRetorno';
-                        await client.sendMessage(from, 'Qual horário deseja agendar para o retorno?');
-                        break;
-                    case 'horarioRetorno':
-                        state.horarioRetorno = msg.body;
-                        state.step = 'diaRetorno';
-                        await client.sendMessage(from, 'Qual dia você deseja para o retorno?');
-                        break;
-                    case 'diaRetorno':
-                        state.diaRetorno = msg.body;
-                        const confirmacaoRetorno = `Retorno agendado:
-Paciente: ${state.nomePaciente}
-Médico: ${state.medicoRetorno}
-Horário: ${state.horarioRetorno}
-Dia: ${state.diaRetorno}
-Se precisar de algo mais, estou à disposição.`;
-                        await client.sendMessage(from, confirmacaoRetorno);
-                        delete userState[from];
-                        await delay(2000);
-                        await enviarMenu(from, state.nomePaciente.split(" ")[0]);
                         break;
                 }
             } catch (error) {
@@ -462,3 +372,90 @@ Se precisar de algo mais, estou à disposição.`;
         }
     }
 });
+
+// client.on('message', async msg => {
+//     const from = msg.from;
+
+//     // Verifica se a mensagem é de um usuário (não é do bot)
+//     if (from.endsWith('@c.us')) {
+//         console.log('Mensagem recebida de:', from, 'Conteúdo:', msg.body);
+
+//         let contato;
+//         try {
+//             contato = await msg.getContact();
+//         } catch (error) {
+//             console.error('Erro ao obter contato para:', from, error);
+//             return;
+//         }
+//         const nome = contato.pushname ? formatarEntrada(contato.pushname.split(" ")[0]) : 'Usuário';
+
+//         // Se o usuário já está em um estado de conversa (ex: agendamento), processa a resposta
+//         if (userState[from]) {
+//             const state = userState[from];
+//             try {
+//                 switch (state.step) {
+//                     case 'nome':
+//                         state.nomePaciente = formatarEntrada(msg.body);
+//                         state.step = 'medico';
+//                         await client.sendMessage(from, 'Qual médico deseja consultar?');
+//                         break;
+//                     case 'medico':
+//                         state.medico = formatarEntrada(msg.body);
+//                         state.step = 'horario';
+//                         await client.sendMessage(from, 'Qual horário deseja marcar?');
+//                         break;
+//                     case 'horario':
+//                         state.horario = msg.body;
+//                         state.step = 'dia';
+//                         await client.sendMessage(from, 'Qual dia você deseja que a consulta seja realizada?');
+//                         break;
+//                     case 'dia':
+//                         state.dia = msg.body;
+//                         const confirmacao = `Consulta agendada:
+// Paciente: ${state.nomePaciente}
+// Médico: ${state.medico}
+// Horário: ${state.horario}
+// Dia: ${state.dia}
+// Se precisar de algo mais, estou à disposição.`;
+//                         await client.sendMessage(from, confirmacao);
+//                         delete userState[from];
+//                         await delay(2000);
+//                         await enviarMenu(from, state.nomePaciente.split(" ")[0]);
+//                         break;
+//                     case 'consultarPreco':
+//                         const procedimentoPreco = formatarEntrada(msg.body);
+//                         const respostaPreco = buscarPreco(procedimentoPreco);
+//                         await client.sendMessage(from, respostaPreco);
+//                         delete userState[from]; // Limpa o estado do usuário
+//                         await delay(2000);
+//                         await enviarMenu(from, nome);
+//                         break;
+//                     case 'verProcedimento':
+//                         const procedimento = formatarEntrada(msg.body);
+//                         const resposta = verificarProcedimento(procedimento);
+//                         await client.sendMessage(from, resposta);
+//                         delete userState[from]; // Limpa o estado do usuário
+//                         await delay(2000);
+//                         await enviarMenu(from, nome);
+//                         break;
+//                 }
+//             } catch (error) {
+//                 console.error('Erro ao processar mensagem para o usuário em estado:', from, error);
+//                 await client.sendMessage(from, 'Desculpe, ocorreu um erro ao processar sua solicitação.');
+//             }
+//         } else {
+//             // Se a mensagem corresponde a uma opção de menu, processa
+//             if (menuOptions[msg.body]) {
+//                 try {
+//                     await menuOptions[msg.body](from);
+//                 } catch (error) {
+//                     console.error('Erro ao processar a opção do menu:', error);
+//                     await client.sendMessage(from, 'Desculpe, ocorreu um erro ao processar sua solicitação.');
+//                 }
+//             } else {
+//                 // Caso não corresponda a uma opção específica, envia o menu principal
+//                 await enviarMenu(from, nome);
+//             }
+//         }
+//     }
+// });
