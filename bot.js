@@ -239,7 +239,11 @@ async function agendarConsulta(from) {
     userState[from] = { step: 'nome' };
     await client.sendMessage(from, 'Por favor, informe o nome completo do paciente.');
 }
-
+async function marcaRetorno(from) {
+    console.log('Iniciando marcação de retorno para:', from);
+    userState[from] = { step: 'nomeRetorno' };
+    await client.sendMessage(from, 'Por favor, informe o nome completo do paciente para o retorno.');
+}
 // Função para enviar informações sobre endoscopia
 async function diasEndoscopia(from) {
     console.log('Enviando informações sobre endoscopia para:', from);
@@ -342,12 +346,6 @@ Se precisar de algo mais, estou à disposição.`;
     }
 });
 
-
-async function marcaRetorno(from) {
-    console.log('Iniciando marcação de retorno para:', from);
-    userState[from] = { step: 'nomeRetorno' };
-    await client.sendMessage(from, 'Por favor, informe o nome completo do paciente para o retorno.');
-}
 
 // Listener para mensagens recebidas
 client.on('message', async msg => {
